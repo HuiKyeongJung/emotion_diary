@@ -1,1 +1,1 @@
-# emtion_diary
+# emotion_diary
