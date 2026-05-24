@@ -1,1 +1,1 @@
-# lion_project
+# emtion_diary
