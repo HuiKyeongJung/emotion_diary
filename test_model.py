@@ -1,17 +1,23 @@
-import joblib
+from emotion_predictor import load_artifacts, predict_emotion
 
-# 저장된 모델 불러오기
-model = joblib.load("emotion_model.pkl")
-vectorizer = joblib.load("vectorizer.pkl")
 
-# 테스트 문장
-text = ["오늘 너무 행복하고 기분이 좋아"]
+model, vectorizer = load_artifacts()
 
-# 문장을 숫자로 변환
-text_vectorized = vectorizer.transform(text)
+print("감정 테스트 시작")
+print("종료하려면 exit 입력")
+print("-" * 30)
 
-# 감정 예측
-prediction = model.predict(text_vectorized)
+while True:
+    text = input("입력 문장: ")
 
-print("입력 문장:", text[0])
-print("예측 감정:", prediction[0])
+    if text.lower() == "exit":
+        print("테스트 종료")
+        break
+
+    result = predict_emotion(text, model, vectorizer)
+
+    print("입력 문장:", text)
+    print("예측 감정:", result["emotion"])
+    print("신뢰도:", result["confidence"])
+    print("판단 방식:", result["source"])
+    print("-" * 30)

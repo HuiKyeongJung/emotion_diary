@@ -1,0 +1,29 @@
+{
+  "selected_model": "linear_svc_c0.5",
+  "accuracy": 0.7523809523809524,
+  "macro_f1": 0.7510232996516333,
+  "candidates": [
+    {
+      "name": "linear_svc_c0.5",
+      "accuracy": 0.7523809523809524,
+      "macro_f1": 0.7510232996516333
+    },
+    {
+      "name": "linear_svc_c1.0",
+      "accuracy": 0.7514285714285714,
+      "macro_f1": 0.7506773173453376
+    },
+    {
+      "name": "linear_svc_c2.0",
+      "accuracy": 0.7450793650793651,
+      "macro_f1": 0.7447335666940008
+    }
+  ],
+  "labels": [
+    "기쁨",
+    "분노",
+    "불안",
+    "슬픔",
+    "우울"
+  ]
+}

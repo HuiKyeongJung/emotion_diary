@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodMirror</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="intro-panel">
+            <p class="eyebrow">Daily emotion diary</p>
+            <h1>MoodMirror</h1>
+            <p class="tagline">나만의 감정일기</p>
+            <p class="subtitle">오늘의 감정을 기록해보세요</p>
+            <div class="date-field">
+                <label for="diaryDate">날짜</label>
+                <input id="diaryDate" type="date">
+            </div>
+        </section>
+
+        <section class="diary-panel" aria-label="감정 일기 입력">
+            <label for="diaryInput">오늘 하루는 어땠나요?</label>
+            <textarea id="diaryInput" placeholder="예: 오늘은 비가 와서 기분이 좋지 않았어"></textarea>
+            <div class="action-row">
+                <p id="statusText" class="status-text">짧게 한 문장만 적어도 괜찮아요.</p>
+                <button id="analyzeButton" type="button" onclick="analyzeEmotion()">감정 저장하기</button>
+            </div>
+        </section>
+
+        <section id="result" class="result-panel hidden" aria-live="polite">
+            <div class="result-header">
+                <div>
+                    <p class="eyebrow">Analysis result</p>
+                    <h2>오늘의 감정 리포트</h2>
+                </div>
+                <span id="emotion" class="emotion-badge"></span>
+            </div>
+            <p class="emotion-sentence">오늘의 감정은 <strong id="emotionText"></strong>이다</p>
+            <div class="score-block">
+                <div class="score-label">
+                    <span>감정 점수</span>
+                    <strong><span id="score"></span>점</strong>
+                </div>
+                <div class="score-track">
+                    <div id="scoreFill" class="score-fill"></div>
+                </div>
+            </div>
+            <p id="message" class="message-box"></p>
+        </section>
+
+        <section class="history-panel" aria-label="감정 기록">
+            <div class="history-header">
+                <div>
+                    <p class="eyebrow">Diary history</p>
+                    <h2>날짜별 감정 기록</h2>
+                </div>
+                <div class="history-date-field">
+                    <label for="historyDate">기록 날짜</label>
+                    <input id="historyDate" type="date" onchange="renderHistory()">
+                </div>
+            </div>
+            <div id="historyList" class="history-list"></div>
+        </section>
+    </main>
+
+    <script>
+        const STORAGE_KEY = "moodmirrorEmotionRecords";
+        const today = new Date();
+
+        document.getElementById("diaryDate").valueAsDate = today;
+        document.getElementById("historyDate").valueAsDate = today;
+
+        function getRecords() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveRecord(record) {
+            try {
+                const records = getRecords();
+                records.unshift(record);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function renderHistory() {
+            const selectedDate = document.getElementById("historyDate").value;
+            const historyList = document.getElementById("historyList");
+            const records = getRecords().filter((record) => record.date === selectedDate);
+
+            if (records.length === 0) {
+                historyList.innerHTML = '<p class="empty-history">이 날짜에 저장된 감정 기록이 없어요.</p>';
+                return;
+            }
+
+            historyList.innerHTML = records.map((record) => `
+                <article class="history-item">
+                    <div class="history-item-header">
+                        <strong>${escapeHtml(record.emotion)}</strong>
+                        <span>${escapeHtml(record.score)}점</span>
+                    </div>
+                    <p class="history-text">${escapeHtml(record.text)}</p>
+                    <p class="history-message">${escapeHtml(record.positive_message)}</p>
+                </article>
+            `).join("");
+        }
+
+        async function analyzeEmotion() {
+            const text = document.getElementById("diaryInput").value.trim();
+            const selectedDate = document.getElementById("diaryDate").value;
+            const button = document.getElementById("analyzeButton");
+            const statusText = document.getElementById("statusText");
+
+            if (!selectedDate) {
+                statusText.innerText = "날짜를 먼저 선택해주세요.";
+                return;
+            }
+
+            if (!text) {
+                statusText.innerText = "분석할 내용을 먼저 입력해주세요.";
+                return;
+            }
+
+            button.disabled = true;
+            button.innerText = "저장 중...";
+            statusText.innerText = "감정을 분석하고 있어요.";
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({text: text})
+                });
+
+                if (!response.ok) {
+                    throw new Error("분석 요청에 실패했습니다.");
+                }
+
+                const data = await response.json();
+                const score = Number(data.score);
+
+                document.getElementById("emotion").innerText = data.emotion;
+                document.getElementById("emotionText").innerText = data.emotion;
+                document.getElementById("score").innerText = score;
+                document.getElementById("scoreFill").style.width = `${Math.max(0, Math.min(score, 100))}%`;
+                document.getElementById("message").innerText = data.positive_message;
+                document.getElementById("result").classList.remove("hidden");
+
+                const saved = saveRecord({
+                    date: selectedDate,
+                    text: data.input_text,
+                    emotion: data.emotion,
+                    score: score,
+                    positive_message: data.positive_message,
+                    saved_at: new Date().toISOString()
+                });
+
+                document.getElementById("historyDate").value = selectedDate;
+                renderHistory();
+                statusText.innerText = saved
+                    ? "감정이 저장됐어요."
+                    : "분석은 완료됐지만 브라우저 저장소에 기록하지 못했어요.";
+            } catch (error) {
+                statusText.innerText = "분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.";
+            } finally {
+                button.disabled = false;
+                button.innerText = "감정 저장하기";
+            }
+        }
+
+        renderHistory();
+    </script>
+</body>
+</html>
